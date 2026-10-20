@@ -7,7 +7,7 @@ const source=fs.readFileSync('main.js','utf8');
 const css=fs.readFileSync('styles.css','utf8');
 const manifest=JSON.parse(fs.readFileSync('manifest.json','utf8'));
 fs.mkdirSync('qa-artifacts',{recursive:true});
-const bootstrap=String.raw\`
+const bootstrap=String.raw`
 const target=document.querySelector('#target');
 class Plugin{
  constructor(){this.app=app;this.manifest={version:'VERSION'};}
@@ -30,7 +30,7 @@ function require(name){if(name==='obsidian')return {Plugin,ItemView,Modal,Notice
 window.PluginClass=module.exports;})();
 var plugin=new window.PluginClass();
 plugin.onload();
-\`;
+`;
 function build(width,height){
  let js=bootstrap.replace('INNER_WIDTH',String(width)).replace('VERSION',manifest.version).replace('PLUGIN_SOURCE',source);
  return '<!DOCTYPE html><html lang="zh"><head><meta name="viewport" content="width=device-width,initial-scale=1">'+

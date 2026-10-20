@@ -34,3 +34,25 @@ iPhone 和 Windows Obsidian 通用的 PersonalOS 主页插件（插件 ID：`per
 已授权丢弃旧版演示资料时，使用 Obsidian 命令面板中的 `PersonalOS Home: 一次性清理旧版文件与文件夹（保留插件与同步设置）`。确认后将当前库可见文件移入 Obsidian 回收站，并清除空目录；保留 `.obsidian`、BRAT、Remotely Save 和自动布局诊断。
 
 **务必先暂停旧版 Remotely Save 同步**，在 iPhone 与 Windows 上清理各自的本地旧数据，再统一设置新的远程基础目录 `PersonalOS-v3`。否则旧版远程内容仍可能重新下载。此命令不执行后台自动删除，也不会直接改动 Dropbox 授权参数。 
+
+
+## v3.3 — 成熟社区插件的可选集成
+
+首页「成熟模块」直接调用已启用插件的实际命令（不是网址跳转，也不复制其 UI）：
+
+| 模块 | 插件 ID | 指令 | 版本门槛 |
+|---|---|---|---|
+| 笔记导航 | `notebook-navigator` | `notebook-navigator:open` | Obsidian ≥1.13.0 |
+| 智能收集 | `quickadd` | `quickadd:runQuickAdd` | Obsidian ≥1.13.0 |
+| 全文搜索 | `omnisearch` | `omnisearch:show-modal` | Obsidian ≥1.13.3 |
+| 任务日程 | `tasknotes` | `tasknotes:open-tasks-view` | Obsidian ≥1.12.2 |
+
+候选插件须用户自行从 Obsidian「设置 → 社区插件 → 浏览」安装并启用；本插件不会执行安装或静默写入插件配置。QuickAdd、Notebook Navigator 和 Omnisearch 未启用时分别回退到 PersonalOS 原生速记、笔记资料页及搜索页；TaskNotes 未启用时提示安装。现有 Markdown 路径与格式不变。
+
+**兼容性说明：** 第三方命令注册表属于 Obsidian 内部实现，虽然已比对上述开源插件的真实命令声明，Obsidian 或插件未来版本仍可能更改。上线前运行 `qa/integrations.mjs` 和 `qa/layout.mjs`，并在隔离 Obsidian Vault 中实际点按四个入口，分别确认可用与后备行为。隔离测试不等于 iPhone 真机通过。
+
+对应插件源码：
+- https://github.com/johansan/notebook-navigator
+- https://github.com/chhoumann/quickadd
+- https://github.com/scambier/obsidian-omnisearch
+- https://github.com/callumalpass/tasknotes

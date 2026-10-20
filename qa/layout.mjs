@@ -21,8 +21,8 @@ class TFile{}
 HTMLElement.prototype.empty=function(){this.replaceChildren();};
 HTMLElement.prototype.addClass=function(c){this.classList.add(c);};
 window.setIcon=(el)=>{el.textContent='◇';};
-const records=[{path:'10 日记/2026-10-20.md',basename:'2026-10-20',name:'2026-10-20.md',stat:{mtime:Date.now()}}];
-const vault={getMarkdownFiles:()=>records,getAllLoadedFiles:()=>records,getName:()=> 'QA Demo',getAbstractFileByPath:()=>null,on:()=>({}),createFolder:async()=>{},create:async(p,body)=>({path:p,basename:p.split('/').pop(),stat:{mtime:Date.now()}})};
+const records=[Object.assign(new TFile(),{path:'10 日记/2026-10-20.md',basename:'2026-10-20',name:'2026-10-20.md',stat:{mtime:Date.now()}})]; window.createdPaths=[];
+const vault={getMarkdownFiles:()=>records,getAllLoadedFiles:()=>records,getName:()=> 'QA Demo',getAbstractFileByPath:p=>records.find(f=>f.path===p)||null,on:()=>({}),createFolder:async()=>{},create:async(p,body)=>{window.createdPaths.push(p);const obj=Object.assign(new TFile(),{path:p,basename:p.split('/').pop().replace(/\\.md$/,''),stat:{mtime:Date.now()}});records.push(obj);return obj;}};
 const leaf={view:null,setViewState:async function(){this.view=plugin.factory(this);await this.view.onOpen();},openFile:async()=>{}};
 const app={isMobile:INNER_WIDTH<601,vault,workspace:{onLayoutReady:f=>f(),getLeavesOfType:()=>leaf.view?[leaf]:[],getLeaf:()=>leaf,revealLeaf:async()=>{}}};
 function require(name){if(name==='obsidian')return {Plugin,ItemView,Modal,Notice,setIcon:window.setIcon,TFile};throw Error('Unknown '+name);}
@@ -55,6 +55,22 @@ try{
    assert.ok(geo.tabs.bottom<=geo.content.top+1,name+': tabs must precede content');
    assert.ok(geo.tabs.bottom<=geo.native.top,name+': tabs overlap native toolbar');
   }
+
+  // Quick capture must never trap users behind a native modal.
+  await page.locator('.ph-actions-panel .ph-action-primary').click();
+  assert.ok(await page.getByRole('heading',{name:'快速记录'}).isVisible(),name+': capture editor failed to open');
+  await page.locator('.ph-compose-editor').fill('自动测试：保存后直接返回首页');
+  page.once('dialog',dialog=>dialog.dismiss());
+  await page.locator('.ph-top-action').click();
+  assert.ok(await page.getByRole('heading',{name:'快速记录'}).isVisible(),name+': unsaved text lost without confirmation');
+  await page.getByText('保存并返回').click();
+  assert.ok(await page.getByText('把重要的事，留在今天。').isVisible(),name+': save did not return home');
+  const paths=await page.evaluate(()=>window.createdPaths);
+  assert.ok(paths.some(p=>p.startsWith('01 收集/记录/')),name+': capture was not persisted as markdown');
+  // Blank editor can be exited with one tap.
+  await page.locator('.ph-actions-panel .ph-action-primary').click();
+  await page.locator('.ph-top-action').click();
+  assert.ok(await page.getByText('把重要的事，留在今天。').isVisible(),name+': blank capture did not return');
   await page.locator('.ph-tab').filter({hasText:'日记'}).click();
   assert.ok(await page.getByText('历史日记').isVisible());
   await page.locator('.ph-tab').filter({hasText:'资料'}).click();

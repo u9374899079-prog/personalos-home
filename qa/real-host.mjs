@@ -13,11 +13,16 @@ let browser;
 try{
  browser=await chromium.connectOverCDP('http://127.0.0.1:9222',{timeout:20000});
  let page=null;
+ let trustHandled=false;
  const seen=new Set();
  for(let i=0;i<50;i++){
   const pages=browser.contexts().flatMap(c=>c.pages());
   for(const p of pages){
    if(!seen.has(p)){seen.add(p);p.on('pageerror',e=>report.errors.push('renderer:'+String(e)));p.on('console',m=>{if(m.type()==='error')report.errors.push('console:'+m.text().slice(0,450));});}
+   if(!trustHandled && await p.getByText('Trust author and enable plugins',{exact:true}).count().catch(()=>0)){
+     await p.getByText('Trust author and enable plugins',{exact:true}).click({timeout:10000});
+     trustHandled=true;mark('Official first-use plugin trust dialog handled inside disposable QA vault',true);
+   }
    if(await p.locator('.ph-shell').count().catch(()=>0)){page=p;break;}
   }
   if(page)break;

@@ -1,0 +1,33 @@
+name: PersonalOS v3.3 Isolated QA
+on:
+  push:
+    branches: ['feature/mature-plugins-v3-3-0']
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  integrations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate plugin bundle syntax and commands
+        run: |
+          node --check main.js
+          node qa/integrations.mjs
+      - name: Install browser test runtimes
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium webkit
+      - name: Run mobile and desktop visual/functional checks
+        run: node qa/layout.mjs
+      - name: Preserve QA images
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: personalos-v3-3-qa
+          path: qa-artifacts/
+          if-no-files-found: ignore

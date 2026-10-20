@@ -2,7 +2,7 @@
    This does NOT claim to reproduce the real iOS native window. */
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
-import {chromium} from 'playwright';
+import {chromium,webkit} from 'playwright';
 const source=fs.readFileSync('main.js','utf8');
 const css=fs.readFileSync('styles.css','utf8');
 const manifest=JSON.parse(fs.readFileSync('manifest.json','utf8'));
@@ -38,7 +38,8 @@ function build(width,height){
  '<style>'+css+'</style></head><body><div class="native-top"></div><div class="workspace-leaf-content" data-type="personalos-home-view"><div class="view-content" id="target"></div></div><div class="mobile-navbar"></div><script>'+
  js.replaceAll('</script>','<\\/script>')+'</script></body></html>';
 }
-const browser=await chromium.launch({headless:true});
+for(const [engineName,engine] of [['chromium',chromium],['webkit',webkit]]){
+const browser=await engine.launch({headless:true});
 try{
  for(const [name,width,height] of [['iphone',390,844],['small',360,780],['desktop',1200,850]]){
   const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:1});
@@ -60,7 +61,7 @@ try{
   await page.locator('.ph-actions-panel .ph-action-primary').click();
   assert.ok(await page.getByRole('heading',{name:'快速记录'}).isVisible(),name+': capture editor failed to open');
   await page.locator('.ph-compose-editor').fill('自动测试：保存后直接返回首页');
-  await page.screenshot({path:'qa-artifacts/'+name+'-capture.png',fullPage:false});
+  await page.screenshot({path:'qa-artifacts/'+engineName+'-'+name+'-capture.png',fullPage:false});
   page.once('dialog',dialog=>dialog.dismiss());
   await page.locator('.ph-top-action').click();
   assert.ok(await page.getByRole('heading',{name:'快速记录'}).isVisible(),name+': unsaved text lost without confirmation');
@@ -80,8 +81,9 @@ try{
   await page.locator('.ph-surface').evaluate(el=>el.scrollTop=el.scrollHeight);
   const last=await page.evaluate(()=>document.querySelector('.ph-area-tile:last-child').getBoundingClientRect().bottom);
   assert.ok(last<=geo.native.top+1,name+': last tile is obscured');
-  await page.screenshot({path:'qa-artifacts/'+name+'.png',fullPage:false});
-  console.log('PASS '+name+' '+width+'x'+height);
+  await page.screenshot({path:'qa-artifacts/'+engineName+'-'+name+'.png',fullPage:false});
+  console.log('PASS '+engineName+' '+name+' '+width+'x'+height);
   await page.close();
  }
 }finally{await browser.close();}
+}

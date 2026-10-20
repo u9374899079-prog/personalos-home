@@ -60,6 +60,7 @@ try{
   await page.locator('.ph-actions-panel .ph-action-primary').click();
   assert.ok(await page.getByRole('heading',{name:'快速记录'}).isVisible(),name+': capture editor failed to open');
   await page.locator('.ph-compose-editor').fill('自动测试：保存后直接返回首页');
+  await page.screenshot({path:'qa-artifacts/'+name+'-capture.png',fullPage:false});
   page.once('dialog',dialog=>dialog.dismiss());
   await page.locator('.ph-top-action').click();
   assert.ok(await page.getByRole('heading',{name:'快速记录'}).isVisible(),name+': unsaved text lost without confirmation');

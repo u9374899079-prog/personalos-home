@@ -7,6 +7,7 @@ on:
       - manifest.json
       - styles.css
       - .github/workflows/release.yml
+      - qa/layout.mjs
   workflow_dispatch:
 permissions:
   contents: write
@@ -31,6 +32,22 @@ jobs:
           }
           fs.appendFileSync(process.env.GITHUB_OUTPUT, "version=" + m.version + "\n");
           NODE
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright browser for visual layout QA
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Test mobile layout and app navigation
+        run: node qa/layout.mjs
+      - name: Save layout screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-qa-screenshots
+          path: qa-artifacts/
+          if-no-files-found: ignore
       - name: Publish release when version is new
         shell: bash
         env:

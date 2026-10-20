@@ -27,7 +27,7 @@ jobs:
         with:
           node-version: '22'
       - name: Install development dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
       - name: Test data contract, official types, and esbuild artifact
         run: npm run check
       - name: Check package and official Obsidian plugin bundle

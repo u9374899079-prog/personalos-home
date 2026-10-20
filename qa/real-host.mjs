@@ -39,6 +39,17 @@ try{
  }
  mark('PersonalOS plugin mounted inside actual Obsidian host',true,page.url());
  await page.screenshot({path:path.join(artifactDir,'01-real-obsidian-home.png'),timeout:15000});
+ const hostNavigation=await page.evaluate(()=>{
+   const tabs=document.querySelector('.ph-tabs'),ribbon=document.querySelector('.workspace-ribbon');
+   if(!tabs)return {customBottomNavigationVisible:false,nativeLeftRibbonVisible:!!ribbon};
+   const b=tabs.getBoundingClientRect(),st=getComputedStyle(tabs);
+   return {customBottomNavigationVisible:st.display!=='none'&&b.height>0,nativeLeftRibbonVisible:!!ribbon};
+ });
+ report.designObservations=hostNavigation;
+ if(hostNavigation.customBottomNavigationVisible && hostNavigation.nativeLeftRibbonVisible){
+   report.designIssues=['Desktop shows custom PersonalOS bottom tabs while Obsidian already supplies native workspace navigation'];
+ }
+
  const version=await page.locator('.ph-build-tag').innerText().catch(()=>'missing');
  assert.equal(version,'v3.2.2');mark('Production manifest version rendered',true,version);
  const home=await page.locator('.ph-actions-panel .ph-action-primary').count();

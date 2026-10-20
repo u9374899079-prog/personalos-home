@@ -55,6 +55,9 @@ class PersonalView extends ItemView{
    const nav=el('nav','ph-tabs');nav.setAttribute('aria-label','主导航');
    for(const [id,name,icon] of SECTIONS){const b=btn(name,icon,'ph-tab'+(id===this.section?' is-active':''),()=>this.go(id));if(id===this.section)b.setAttribute('aria-current','page');nav.appendChild(b);}
    shell.appendChild(nav);
+   // On iPhone, Obsidian owns the bottom toolbar; our tabs stay above content.
+   // Match the same CSS breakpoint so iPad/desktop layouts remain unchanged.
+   if(window.matchMedia('(max-width:600px)').matches) shell.insertBefore(nav,this.surface);
  }
  go(id){this.section=id;this.render();}
  title(k,title,subtitle){this.surface.append(el('div','ph-eyebrow',k),el('h1','ph-page-title',title),el('p','ph-page-subtitle',subtitle));}
@@ -87,8 +90,28 @@ module.exports=class PersonalOSHome extends Plugin{
    this.addCommand({id:'quick-capture',name:'快速记录',callback:()=>new EntryModal(this.app,this,'capture').open()});
    this.addCommand({id:'open-today',name:'打开今日日记',callback:()=>this.openToday()});
    this.addCommand({id:'new-note',name:'新建笔记',callback:()=>new EntryModal(this.app,this,'note').open()});
+   this.addCommand({id:'ui-diagnostics',name:'界面诊断（复制设备布局信息）',callback:()=>this.showLayoutDiagnostics()});
    for(const ev of ['create','modify','delete','rename'])this.registerEvent(this.app.vault.on(ev,()=>this.refreshViews()));
    this.app.workspace.onLayoutReady(()=>this.show());
+ }
+
+ async showLayoutDiagnostics(){
+   const leaf=this.app.workspace.getLeavesOfType(VIEW)[0],view=leaf?.view;
+   const rect=(node)=>{if(!node)return null;const r=node.getBoundingClientRect();return {top:Math.round(r.top),bottom:Math.round(r.bottom),height:Math.round(r.height),width:Math.round(r.width)};};
+   const loaded=this.app.vault.getAllLoadedFiles();
+   const details={version:this.manifest.version,localVault:this.app.vault.getName(),markdownFiles:this.app.vault.getMarkdownFiles().length,
+     folders:loaded.filter(f=>Array.isArray(f.children)).length,
+     viewport:{width:window.innerWidth,height:window.innerHeight,visualHeight:Math.round(window.visualViewport?.height||window.innerHeight)},
+     pluginHeader:rect(view?.contentEl?.querySelector('.ph-topbar')),
+     pluginNavigation:rect(view?.contentEl?.querySelector('.ph-tabs')),
+     contentArea:rect(view?.contentEl?.querySelector('.ph-surface')),
+     obsidianBottomNavigation:rect(document.querySelector('.mobile-navbar')),
+     obsidianTopBar:rect(document.querySelector('.view-header'))};
+   const modal=new Modal(this.app);modal.titleEl.setText('PersonalOS 界面诊断');
+   modal.contentEl.appendChild(el('p','', '仅包含屏幕布局、库名和文件数量，不读取笔记正文与同步凭据。'));
+   const t=el('textarea','ph-modal-textarea');t.readOnly=true;t.rows=12;t.value=JSON.stringify(details,null,2);modal.contentEl.appendChild(t);
+   modal.contentEl.appendChild(btn('复制诊断信息','copy','ph-button ph-button-primary',async()=>{try{await navigator.clipboard.writeText(t.value);new Notice('诊断信息已复制，可以粘贴到 ChatGPT');}catch{t.focus();t.select();new Notice('请长按选择并复制文本');}}));
+   modal.open();
  }
  onunload(){this.app.workspace.detachLeavesOfType(VIEW);}
  async show(){let leaves=this.app.workspace.getLeavesOfType(VIEW);let leaf=leaves[0]||this.app.workspace.getLeaf(true);if(!leaves.length)await leaf.setViewState({type:VIEW,active:true});await this.app.workspace.revealLeaf(leaf);}

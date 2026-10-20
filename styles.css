@@ -107,3 +107,25 @@
  .ph-host .ph-brand-name{letter-spacing:.09em;}
  .ph-host .ph-build-tag{font-size:9px;}
 }
+
+/* v3.2: native-like compose flow; reduce dashboard density instead of adding more fake toolbars. */
+.ph-compose-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 15px;}
+.ph-compose-top .ph-eyebrow{margin:0;}
+.ph-compose-back{display:inline-flex;align-items:center;gap:7px;border:0;background:none;color:#bdd6c8;padding:10px 6px;font-size:13px;min-height:44px;}
+.ph-compose-editor{display:block;width:100%;min-height:245px;max-width:100%;background:#1c2024!important;color:#eef2ef!important;border:1px solid #383e40!important;border-radius:13px!important;outline:none;padding:16px!important;font:inherit;font-size:16px!important;line-height:1.75;resize:vertical;box-sizing:border-box;}
+.ph-compose-editor:focus{border-color:#99bca8!important;box-shadow:0 0 0 2px rgba(157,188,168,.13);}
+.ph-compose-actions{display:grid;grid-template-columns:1fr 1fr;gap:11px;padding:16px 0 36px;}
+.ph-compose-actions .ph-action{min-height:53px;}
+@media(max-width:600px){
+ .ph-host .ph-surface{padding-top:16px;}
+ .ph-host .ph-hero{padding-bottom:18px;}
+ .ph-host .ph-headline{font-size:26px!important;margin-bottom:7px!important;line-height:1.35!important;}
+ .ph-host .ph-lead{font-size:12px;line-height:1.5;}
+ .ph-host .ph-summary-row{margin:13px 0 19px;}
+ .ph-host .ph-actions-panel{gap:9px;}
+ .ph-host .ph-actions-panel .ph-action{min-height:58px;}
+ .ph-host .ph-tabs{flex-basis:48px;height:48px;}
+ .ph-host .ph-tab{min-height:42px;}
+ .ph-host .ph-compose-editor{min-height:190px;}
+ .ph-host .ph-compose-actions{padding-bottom:calc(42px + env(safe-area-inset-bottom));}
+}

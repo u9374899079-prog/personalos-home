@@ -1,7 +1,7 @@
 'use strict';
 /* PersonalOS Home: Obsidian-native view, mobile first. Uses only the vault API.
    No outbound network, Dropbox credentials, Node.js or Electron APIs. */
-const {Plugin,ItemView,Modal,Notice,setIcon,TFile}=require('obsidian');
+const {Plugin,ItemView,Modal,Notice,setIcon,TFile,TFolder}=require('obsidian');
 const VIEW='personalos-home-view';
 const DIR={capture:'01 收集/记录',journal:'10 日记',notes:'20 笔记'};
 const SECTIONS=[['today','今天','house'],['capture','收集','inbox'],['journal','日记','calendar-days'],['library','资料','library']];
@@ -119,11 +119,37 @@ module.exports=class PersonalOSHome extends Plugin{
    this.addCommand({id:'open-today',name:'打开今日日记',callback:()=>this.openToday()});
    this.addCommand({id:'new-note',name:'新建笔记',callback:()=>this.openComposer('note')});
    this.addCommand({id:'ui-diagnostics',name:'界面诊断（复制设备布局信息）',callback:()=>this.showLayoutDiagnostics()});
-   for(const ev of ['create','modify','delete','rename'])this.registerEvent(this.app.vault.on(ev,(file)=>{if(!file?.path?.startsWith('90 系统/界面诊断-'))this.refreshViews();}));
+   this.addCommand({id:'reset-old-vault',name:'一次性清理旧版文件与文件夹（保留插件与同步设置）',callback:()=>this.offerLegacyCleanup()});
+   for(const ev of ['create','modify','delete','rename'])this.registerEvent(this.app.vault.on(ev,(file)=>{if(!this._cleaning&&!file?.path?.startsWith('90 系统/界面诊断-'))this.refreshViews();}));
    this.app.workspace.onLayoutReady(()=>this.show());
  }
 
 
+
+ offerLegacyCleanup(){
+  const files=this.app.vault.getAllLoadedFiles();
+  const protectedPath=(p)=>p==='.obsidian'||p.startsWith('.obsidian/')||p.startsWith('90 系统/界面诊断-');
+  const targets=files.filter(f=>f instanceof TFile&&!protectedPath(f.path));
+  const m=new Modal(this.app);
+  m.titleEl.setText('一次性清理旧版笔记库');
+  const panel=m.contentEl;panel.appendChild(el('p','', '发现 '+targets.length+' 个内容文件。此操作只在当前本地笔记库执行，并通过 Obsidian 自身回收站处理文件；不清理或重置 .obsidian 插件、BRAT 和 Dropbox 授权。'));
+  panel.appendChild(el('p','', '注意：如果 Remotely Save 仍指向旧的远程文件夹，同步可能把旧文件再次下载回来。清理前应先停止旧路径同步，并确认所有设备使用同一个新目录。'));
+  const action=el('div','ph-modal-actions');
+  action.appendChild(btn('暂不清理',null,'ph-button ph-button-subtle',()=>m.close()));
+  const confirm=btn('确定清理当前库','trash-2','ph-button ph-button-primary',async()=>{
+   confirm.disabled=true;
+   let gone=0,failed=0;this._cleaning=true;
+   try{
+    for(const f of targets){try{await this.app.fileManager.trashFile(f);gone++;}catch(e){failed++;}}
+    const keep=new Set(['00 首页','01 收集','01 收集/记录','10 日记','20 笔记','30 个人生活','40 工作相关','50 资产管理','90 系统']);
+    const folders=this.app.vault.getAllLoadedFiles().filter(f=>f instanceof TFolder&&!protectedPath(f.path)&&f.path!=='/'&&!keep.has(f.path)).sort((a,b)=>b.path.length-a.path.length);
+    for(const folder of folders){if(folder.children?.length===0){try{await this.app.vault.delete(folder);}catch(e){}}}
+    for(const dir of keep){await this.ensure(dir);}
+   }finally{this._cleaning=false;this.refreshViews();m.close();}
+   new Notice('清理完成：'+gone+' 个文件移入回收站；失败 '+failed+' 个。');
+  });action.appendChild(confirm);panel.appendChild(action);
+  m.open();
+ }
  async openComposer(kind){await this.show();const leaf=this.app.workspace.getLeavesOfType(VIEW)[0];if(leaf?.view?.openCompose)leaf.view.openCompose(kind);}
  queueDiagnostics(){clearTimeout(this._diagTimer);this._diagTimer=setTimeout(()=>this.writeDiagnostics().catch(()=>{}),1500);}
  async writeDiagnostics(){
@@ -172,7 +198,7 @@ module.exports=class PersonalOSHome extends Plugin{
  notes(){return this.md().filter(x=>x.path.startsWith(DIR.notes+'/')).sort((a,b)=>b.stat.mtime-a.stat.mtime);}
  recent(){return [...this.captures(),...this.journals(),...this.notes()].sort((a,b)=>b.stat.mtime-a.stat.mtime);}
  async ensure(path){let n='';for(const p of path.split('/')){n=n?n+'/'+p:p;if(!this.app.vault.getAbstractFileByPath(n))await this.app.vault.createFolder(n);}}
- async openFile(file){await this.app.workspace.getLeaf(true).openFile(file);}
+ async openFile(file){let leaf=this.editLeaf;if(!leaf||!leaf.parent)leaf=this.app.workspace.getLeaf(true);this.editLeaf=leaf;await leaf.openFile(file);await this.app.workspace.revealLeaf(leaf);}
  async openArea(folder){await this.ensure(folder);const path=folder+'/说明.md';let f=this.app.vault.getAbstractFileByPath(path);if(!(f instanceof TFile)){try{f=await this.app.vault.create(path,'# '+folder.split('/').at(-1)+'\n\n在这里整理相关资料。\n');}catch(e){f=this.app.vault.getAbstractFileByPath(path);if(!(f instanceof TFile))throw e;}}await this.openFile(f);}
  async openToday(){await this.ensure(DIR.journal);const date=day(),path=DIR.journal+'/'+date+'.md';let f=this.app.vault.getAbstractFileByPath(path);if(!(f instanceof TFile)){
    const contents='---\ntype: daily\ndate: '+date+'\ntags: [daily]\n---\n# '+date+'\n\n## 今天发生了什么\n\n## 一件重要的事\n\n## 明天\n';

@@ -45,7 +45,7 @@ class PersonalView extends ItemView{
  },500);}
  async render(){const host=this.contentEl;host.empty();const shell=el('div','ph-shell');host.appendChild(shell);
    const top=el('header','ph-topbar'),brand=el('div','ph-brand');brand.append(el('div','ph-brand-mark','P'),el('span','ph-brand-name','PERSONAL / OS'));
-   top.appendChild(brand);top.appendChild(btn('搜索','search','ph-top-action',()=>this.go('search')));shell.appendChild(top);
+   brand.appendChild(el('span','ph-build-tag','v'+this.plugin.manifest.version));top.appendChild(brand);top.appendChild(btn('搜索','search','ph-top-action',()=>this.go('search')));shell.appendChild(top);
    this.surface=el('main','ph-surface');shell.appendChild(this.surface);
    if(this.section==='today')await this.today();
    else if(this.section==='capture')await this.captures();

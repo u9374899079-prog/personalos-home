@@ -1,7 +1,7 @@
 'use strict';
 /* PersonalOS Home: Obsidian-native view, mobile first. Uses only the vault API.
    No outbound network, Dropbox credentials, Node.js or Electron APIs. */
-const {Plugin,ItemView,Modal,Notice,setIcon,TFile,TFolder}=require('obsidian');
+const {Plugin,ItemView,Modal,Notice,setIcon,TFile,TFolder,Platform}=require('obsidian');
 const VIEW='personalos-home-view';
 const DIR={capture:'01 收集/记录',journal:'10 日记',notes:'20 笔记'};
 const SECTIONS=[['today','今天','house'],['capture','收集','inbox'],['journal','日记','calendar-days'],['library','资料','library']];
@@ -164,7 +164,7 @@ module.exports=class PersonalOSHome extends Plugin{
      pluginShell:rect('.ph-shell',scope),pluginHeader:rect('.ph-topbar',scope),
      personalNavigation:rect('.ph-tabs',scope),content:rect('.ph-surface',scope),
      obsidianBottomBar:rect('.mobile-navbar'),obsidianViewHeader:rect('.view-header')};
-   const type=this.app.isMobile?'移动端':'桌面端';
+   const type=Platform?.isMobile?'移动端':'桌面端';
    const path='90 系统/界面诊断-'+type+'.md';
    await this.ensure('90 系统');
    const text='# PersonalOS 布局诊断 '+type+'\n\n此文件由 PersonalOS 自动生成，仅包含窗口尺寸和界面位置，不含笔记正文或同步凭据。\n\n~~~json\n'+JSON.stringify(data,null,2)+'\n~~~\n';

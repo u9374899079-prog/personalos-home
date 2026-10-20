@@ -51,6 +51,17 @@ try{
   assert.equal(await page.locator('.ph-build-tag').innerText(),'v'+manifest.version);
   const geo=await page.evaluate(()=>{const r=q=>document.querySelector(q)?.getBoundingClientRect().toJSON();return {top:r('.ph-topbar'),tabs:r('.ph-tabs'),content:r('.ph-surface'),native:r('.mobile-navbar'),width:document.documentElement.scrollWidth,client:document.documentElement.clientWidth};});
   assert.ok(geo.width<=geo.client+1, name+': horizontal overflow');
+  // Ensure iOS floating native toolbar is measured and content clears its overlay.
+  if(width<601){
+    const overlap=await page.evaluate(()=>{
+      const a=document.querySelector('.ph-shell').getBoundingClientRect();
+      const b=document.querySelector('.mobile-navbar').getBoundingClientRect();
+      const p=parseFloat(document.querySelector('.ph-surface').style.paddingBottom);
+      return {covered:Math.max(0,a.bottom-b.top),reserved:p};
+    });
+    assert.ok(overlap.reserved>=overlap.covered+10,name+': not enough scroll reserve beneath native toolbar');
+  }
+
   if(width<601){
    assert.ok(geo.tabs.top>=geo.top.bottom-1,name+': tabs must follow header');
    assert.ok(geo.tabs.bottom<=geo.content.top+1,name+': tabs must precede content');

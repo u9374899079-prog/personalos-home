@@ -90,3 +90,7 @@
 
 /* v3.1.1: preserve generous tap targets on touch devices. */
 @media(pointer:coarse){.ph-file-row{min-height:56px}.ph-tab{min-height:44px}}
+
+/* Update visibility: version marker on the native PersonalOS header. */
+.ph-build-tag{font-size:10px;color:#8faaa0;font-weight:600;letter-spacing:.01em;border:1px solid #385147;border-radius:5px;padding:2px 5px;white-space:nowrap;}
+@media(max-width:390px){.ph-brand{gap:7px}.ph-brand-name{letter-spacing:.1em}.ph-build-tag{font-size:9px}}

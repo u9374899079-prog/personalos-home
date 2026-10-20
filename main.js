@@ -32,28 +32,30 @@ class EntryModal extends Modal{
  onClose(){this.contentEl.empty();}
 }
 class PersonalView extends ItemView{
- constructor(leaf,plugin){super(leaf);this.plugin=plugin;this.section='today';this.ticket=0;this.timer=null;}
+ constructor(leaf,plugin){super(leaf);this.plugin=plugin;this.section='today';this.ticket=0;this.timer=null;this.composeKind='capture';this.composeBack='today';this.draft={title:'',body:''};}
  getViewType(){return VIEW;}
  getDisplayText(){return 'PersonalOS';}
  getIcon(){return 'layout-dashboard';}
- async onOpen(){this.contentEl.addClass('ph-host');await this.render();}
+ async onOpen(){this.contentEl.addClass('ph-host');await this.render();this.plugin.queueDiagnostics();}
  async onClose(){clearTimeout(this.timer);this.contentEl.removeClass('ph-host');}
  refresh(){clearTimeout(this.timer);this.timer=setTimeout(()=>{
-   if(!this.contentEl.isConnected)return;const a=document.activeElement;
+   if(!this.contentEl.isConnected||this.section==='compose')return;const a=document.activeElement;
    if(a&&this.contentEl.contains(a)&&['INPUT','TEXTAREA'].includes(a.tagName))return;
    this.render();
  },500);}
  async render(){const host=this.contentEl;host.empty();const shell=el('div','ph-shell');host.appendChild(shell);
    const top=el('header','ph-topbar'),brand=el('div','ph-brand');brand.append(el('div','ph-brand-mark','P'),el('span','ph-brand-name','PERSONAL / OS'));
-   brand.appendChild(el('span','ph-build-tag','v'+this.plugin.manifest.version));top.appendChild(brand);top.appendChild(btn('搜索','search','ph-top-action',()=>this.go('search')));shell.appendChild(top);
+   brand.appendChild(el('span','ph-build-tag','v'+this.plugin.manifest.version));top.appendChild(brand);top.appendChild(this.section==='compose'?btn('返回','arrow-left','ph-top-action',()=>this.leaveCompose()):btn('搜索','search','ph-top-action',()=>this.go('search')));shell.appendChild(top);
    this.surface=el('main','ph-surface');shell.appendChild(this.surface);
    if(this.section==='today')await this.today();
    else if(this.section==='capture')await this.captures();
    else if(this.section==='journal')await this.journal();
    else if(this.section==='library')await this.library();
+   else if(this.section==='compose')await this.compose();
    else await this.searchPage();
    const nav=el('nav','ph-tabs');nav.setAttribute('aria-label','主导航');
    for(const [id,name,icon] of SECTIONS){const b=btn(name,icon,'ph-tab'+(id===this.section?' is-active':''),()=>this.go(id));if(id===this.section)b.setAttribute('aria-current','page');nav.appendChild(b);}
+   if(this.section==='compose')return;
    shell.appendChild(nav);
    // On iPhone, Obsidian owns the bottom toolbar; our tabs stay above content.
    // Match the same CSS breakpoint so iPad/desktop layouts remain unchanged.
@@ -65,15 +67,41 @@ class PersonalView extends ItemView{
  files(files,empty){const list=el('div','ph-list');this.surface.appendChild(list);if(!files.length){list.appendChild(el('div','ph-empty',empty));return;}
   for(const f of files){const row=btn(f.basename||f.name,'file-text','ph-file-row',()=>this.plugin.openFile(f));row.appendChild(el('small','ph-file-meta',new Intl.DateTimeFormat('zh-CN',{month:'2-digit',day:'2-digit'}).format(new Date(f.stat?.mtime||Date.now()))));list.appendChild(row);}
  }
+
+ openCompose(kind){this.composeKind=kind;this.composeBack=this.section;this.draft={title:'',body:''};this.section='compose';this.render();}
+ leaveCompose(){if((this.draft.title||this.draft.body).trim()&&!window.confirm('这段尚未保存的内容将被丢弃，确定返回吗？'))return;this.draft={title:'',body:''};this.go(this.composeBack||'today');}
+ async compose(){
+   const isNote=this.composeKind==='note';const heading=el('div','ph-compose-top');
+   heading.appendChild(btn('返回'+(this.composeBack==='today'?'首页':''),'arrow-left','ph-compose-back',()=>this.leaveCompose()));
+   heading.appendChild(el('span','ph-eyebrow',isNote?'NOTE / NEW':'CAPTURE / NEW'));
+   this.surface.appendChild(heading);
+   this.surface.appendChild(el('h1','ph-page-title',isNote?'新建笔记':'快速记录'));
+   this.surface.appendChild(el('p','ph-page-subtitle','编辑完成后保存，页面会自动返回；退出前会提醒未保存内容。'));
+   if(isNote){const title=el('input','ph-search-field');title.placeholder='笔记标题';title.setAttribute('aria-label','笔记标题');title.value=this.draft.title;title.addEventListener('input',()=>this.draft.title=title.value);this.surface.appendChild(title);}
+   const editor=el('textarea','ph-compose-editor');editor.rows=9;editor.placeholder='此刻有什么想法？';editor.value=this.draft.body;
+   editor.setAttribute('aria-label',isNote?'笔记正文':'快速记录正文');editor.addEventListener('input',()=>{this.draft.body=editor.value;});
+   this.surface.appendChild(editor);
+   const actions=el('div','ph-compose-actions');
+   actions.appendChild(btn('取消','x','ph-action ph-action-secondary',()=>this.leaveCompose()));
+   const save=btn('保存并返回','check','ph-action ph-action-primary',async()=>{
+     if(save.disabled)return;const body=this.draft.body.trim();const title=this.draft.title.trim();
+     if(!body&&!(isNote&&title)){new Notice('请先输入内容');return;}
+     if(isNote&&!title){new Notice('请输入笔记标题');return;}
+     save.disabled=true;
+     try{if(isNote)await this.plugin.createNote(title,body);else await this.plugin.createCapture(body);
+       this.draft={title:'',body:''};new Notice('保存成功');this.go(this.composeBack||'today');this.plugin.refreshViews();
+     }catch(e){save.disabled=false;new Notice('保存失败：'+(e.message||'未知错误'));}
+   });actions.appendChild(save);this.surface.appendChild(actions);
+ }
  async today(){const hero=el('section','ph-hero');hero.append(el('div','ph-eyebrow',new Intl.DateTimeFormat('zh-CN',{month:'long',day:'numeric',weekday:'long'}).format(new Date())),el('h1','ph-headline','把重要的事，留在今天。'),el('p','ph-lead','一处记录日常，安静整理生活。'));this.surface.appendChild(hero);
-  const acts=el('div','ph-actions-panel');acts.append(btn('快速记录','plus','ph-action ph-action-primary',()=>new EntryModal(this.app,this.plugin,'capture').open()),btn('写今日日记','book-open','ph-action ph-action-secondary',()=>this.plugin.openToday()));this.surface.appendChild(acts);
+  const acts=el('div','ph-actions-panel');acts.append(btn('快速记录','plus','ph-action ph-action-primary',()=>this.openCompose('capture')),btn('写今日日记','book-open','ph-action ph-action-secondary',()=>this.plugin.openToday()));this.surface.appendChild(acts);
   const stats=el('div','ph-summary-row');for(const [a,b] of [['今天',day()],['记录数',String(this.plugin.captures().length)],['日记篇数',String(this.plugin.journals().length)]]){const item=el('div','ph-meta');item.append(el('span','ph-meta-label',a),el('span','ph-meta-value',b));stats.appendChild(item);}this.surface.appendChild(stats);
   this.header('最近记录','继续阅读','capture');this.files(this.plugin.recent().slice(0,5),'还没有记录，从「快速记录」开始。');
   const part=el('section','ph-mini-section');part.appendChild(el('h2','ph-mini-title','我的空间'));const tiles=el('div','ph-area-grid');for(const [name,path,icon] of AREAS)tiles.appendChild(btn(name,icon,'ph-area-tile',()=>this.plugin.openArea(path)));part.appendChild(tiles);this.surface.appendChild(part);
  }
- async captures(){this.title('CAPTURE / INBOX','收集','想到什么，先记下来。');this.surface.appendChild(btn('记录一条想法','plus','ph-action ph-action-primary ph-full',()=>new EntryModal(this.app,this.plugin,'capture').open()));this.header('最近的想法');this.files(this.plugin.captures().slice(0,80),'收集箱目前是空的。');}
+ async captures(){this.title('CAPTURE / INBOX','收集','想到什么，先记下来。');this.surface.appendChild(btn('记录一条想法','plus','ph-action ph-action-primary ph-full',()=>this.openCompose('capture')));this.header('最近的想法');this.files(this.plugin.captures().slice(0,80),'收集箱目前是空的。');}
  async journal(){this.title('DAILY / JOURNAL','日记','每天一点，回头看见生活的轨迹。');this.surface.appendChild(btn('打开今天的日记','calendar-plus','ph-action ph-action-primary ph-full',()=>this.plugin.openToday()));this.header('历史日记');this.files(this.plugin.journals().slice(0,90),'还没有日记，今天就可以开始。');}
- async library(){this.title('LIBRARY / LIFE','资料','个人生活、工作、资产与长期知识。');this.surface.appendChild(btn('写一篇新笔记','file-plus','ph-action ph-action-primary ph-full',()=>new EntryModal(this.app,this.plugin,'note').open()));const tiles=el('div','ph-library-grid');for(const [name,path,icon] of AREAS)tiles.appendChild(btn(name,icon,'ph-library-tile',()=>this.plugin.openArea(path)));this.surface.appendChild(tiles);this.header('最近笔记');this.files(this.plugin.notes().slice(0,70),'还没有独立笔记。');}
+ async library(){this.title('LIBRARY / LIFE','资料','个人生活、工作、资产与长期知识。');this.surface.appendChild(btn('写一篇新笔记','file-plus','ph-action ph-action-primary ph-full',()=>this.openCompose('note')));const tiles=el('div','ph-library-grid');for(const [name,path,icon] of AREAS)tiles.appendChild(btn(name,icon,'ph-library-tile',()=>this.plugin.openArea(path)));this.surface.appendChild(tiles);this.header('最近笔记');this.files(this.plugin.notes().slice(0,70),'还没有独立笔记。');}
  async searchPage(){this.title('FIND / SEARCH','搜索','查找自己的笔记与记录。');const input=el('input','ph-search-field');input.type='search';input.placeholder='搜索标题、内容或关键词';this.surface.appendChild(input);const results=el('div','ph-search-results');results.appendChild(el('div','ph-empty','输入关键词开始搜索。'));this.surface.appendChild(results);let timeout=0;input.addEventListener('input',()=>{clearTimeout(timeout);timeout=setTimeout(()=>this.performSearch(input.value,results),240);});setTimeout(()=>input.focus(),60);}
  async performSearch(value,box){const ticket=++this.ticket,query=value.trim().toLocaleLowerCase();box.empty();if(!query){box.appendChild(el('div','ph-empty','输入关键词开始搜索。'));return;}
   const hits=[];for(const f of this.app.vault.getMarkdownFiles()){if(ticket!==this.ticket)return;if(f.path.startsWith('90 系统/')||f.path.startsWith('00 首页/'))continue;
@@ -87,14 +115,36 @@ class PersonalView extends ItemView{
 module.exports=class PersonalOSHome extends Plugin{
  async onload(){this.registerView(VIEW,leaf=>new PersonalView(leaf,this));this.addRibbonIcon('layout-dashboard','PersonalOS 首页',()=>this.show());
    this.addCommand({id:'open-personal-home',name:'打开 PersonalOS',callback:()=>this.show()});
-   this.addCommand({id:'quick-capture',name:'快速记录',callback:()=>new EntryModal(this.app,this,'capture').open()});
+   this.addCommand({id:'quick-capture',name:'快速记录',callback:()=>this.openComposer('capture')});
    this.addCommand({id:'open-today',name:'打开今日日记',callback:()=>this.openToday()});
-   this.addCommand({id:'new-note',name:'新建笔记',callback:()=>new EntryModal(this.app,this,'note').open()});
+   this.addCommand({id:'new-note',name:'新建笔记',callback:()=>this.openComposer('note')});
    this.addCommand({id:'ui-diagnostics',name:'界面诊断（复制设备布局信息）',callback:()=>this.showLayoutDiagnostics()});
-   for(const ev of ['create','modify','delete','rename'])this.registerEvent(this.app.vault.on(ev,()=>this.refreshViews()));
+   for(const ev of ['create','modify','delete','rename'])this.registerEvent(this.app.vault.on(ev,(file)=>{if(!file?.path?.startsWith('90 系统/界面诊断-'))this.refreshViews();}));
    this.app.workspace.onLayoutReady(()=>this.show());
  }
 
+
+ async openComposer(kind){await this.show();const leaf=this.app.workspace.getLeavesOfType(VIEW)[0];if(leaf?.view?.openCompose)leaf.view.openCompose(kind);}
+ queueDiagnostics(){clearTimeout(this._diagTimer);this._diagTimer=setTimeout(()=>this.writeDiagnostics().catch(()=>{}),1500);}
+ async writeDiagnostics(){
+   // Privacy-safe geometry only: no note names, note bodies, Dropbox authorization or user identifiers.
+   const leaf=this.app.workspace.getLeavesOfType(VIEW)[0],view=leaf?.view;
+   if(!view?.contentEl?.isConnected)return;
+   const rect=(selector,scope=document)=>{const x=scope.querySelector(selector);if(!x)return null;const r=x.getBoundingClientRect();return {top:Math.round(r.top),bottom:Math.round(r.bottom),width:Math.round(r.width),height:Math.round(r.height)};};
+   const scope=view.contentEl;
+   const data={version:this.manifest.version,utc:new Date().toISOString(),viewport:{width:window.innerWidth,height:window.innerHeight,visualHeight:Math.round(window.visualViewport?.height||window.innerHeight)},
+     safeAreaTopCSS:getComputedStyle(document.documentElement).getPropertyValue('--safe-area-inset-top').trim(),
+     activeView:rect('.workspace-leaf-content[data-type="personalos-home-view"]'),
+     pluginShell:rect('.ph-shell',scope),pluginHeader:rect('.ph-topbar',scope),
+     personalNavigation:rect('.ph-tabs',scope),content:rect('.ph-surface',scope),
+     obsidianBottomBar:rect('.mobile-navbar'),obsidianViewHeader:rect('.view-header')};
+   const type=this.app.isMobile?'移动端':'桌面端';
+   const path='90 系统/界面诊断-'+type+'.md';
+   await this.ensure('90 系统');
+   const text='# PersonalOS 布局诊断 '+type+'\n\n此文件由 PersonalOS 自动生成，仅包含窗口尺寸和界面位置，不含笔记正文或同步凭据。\n\n~~~json\n'+JSON.stringify(data,null,2)+'\n~~~\n';
+   const file=this.app.vault.getAbstractFileByPath(path);
+   if(file instanceof TFile)await this.app.vault.modify(file,text);else await this.app.vault.create(path,text);
+ }
  async showLayoutDiagnostics(){
    const leaf=this.app.workspace.getLeavesOfType(VIEW)[0],view=leaf?.view;
    const rect=(node)=>{if(!node)return null;const r=node.getBoundingClientRect();return {top:Math.round(r.top),bottom:Math.round(r.bottom),height:Math.round(r.height),width:Math.round(r.width)};};

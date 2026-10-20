@@ -1,0 +1,54 @@
+name: PersonalOS v3.3 Real Obsidian Host QA
+on:
+  push:
+    branches: ['feature/mature-plugins-v3-3-0']
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  actual-obsidian:
+    name: Official Obsidian 1.14.4 Linux isolated Vault
+    runs-on: ubuntu-latest
+    env:
+      DISPLAY: ':99'
+      QA_VAULT: ${{ runner.temp }}/qa-vault
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prepare browser tests and official desktop application
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+          curl -fL --retry 3 --retry-delay 3 --connect-timeout 20 -o "$RUNNER_TEMP/obsidian.deb" 'https://github.com/obsidianmd/obsidian-releases/releases/download/v1.14.4/obsidian_1.14.4_amd64.deb'
+          sudo dpkg -i "$RUNNER_TEMP/obsidian.deb" || sudo apt-get install -f -y -qq
+          sudo apt-get install -y -qq xvfb
+      - name: Construct synthetic test vault and start official Obsidian
+        run: |
+          mkdir -p "$QA_VAULT/.obsidian/plugins/personalos-home" "$QA_VAULT/10 日记" "$QA_VAULT/01 收集/记录" "$QA_VAULT/20 笔记" "$RUNNER_TEMP/qa-home/obsidian" qa-artifacts
+          cp main.js manifest.json styles.css "$QA_VAULT/.obsidian/plugins/personalos-home/"
+          printf '["personalos-home"]\n' > "$QA_VAULT/.obsidian/community-plugins.json"
+          printf '{"theme":"obsidian","cssTheme":""}\n' > "$QA_VAULT/.obsidian/appearance.json"
+          printf '{"showLineNumber":false}\n' > "$QA_VAULT/.obsidian/app.json"
+          printf '# Demo Note\n\nReal Obsidian QA isolated test.\n' > "$QA_VAULT/20 笔记/Independent test.md"
+          printf 'Keep this diary intact.\n' > "$QA_VAULT/10 日记/2026-10-20.md"
+          node -e 'const fs=require("fs");const f=process.env.RUNNER_TEMP+"/qa-home/obsidian/obsidian.json";fs.writeFileSync(f,JSON.stringify({vaults:{"abcdef0123456789":{path:process.env.QA_VAULT,ts:Date.now(),open:true}}},null,2))'
+          Xvfb :99 -screen 0 1280x900x24 -nolisten tcp > qa-artifacts/xvfb.log 2>&1 &
+          XDG_CONFIG_HOME="$RUNNER_TEMP/qa-home" HOME="$RUNNER_TEMP/qa-home" obsidian --no-sandbox --disable-gpu --remote-debugging-port=9222 --disable-software-rasterizer > qa-artifacts/obsidian-host.log 2>&1 &
+          for i in $(seq 1 45); do
+            if curl -fsS http://127.0.0.1:9222/json/version > qa-artifacts/devtools.json 2>/dev/null; then echo 'Official desktop running'; exit 0; fi
+            sleep 2
+          done
+          cat qa-artifacts/obsidian-host.log
+          exit 1
+      - name: Test native Obsidian plugin workflow
+        run: node qa/real-host.mjs
+      - name: Upload native host logs and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: personalos-v3-3-real-host
+          path: qa-artifacts/
+          if-no-files-found: ignore

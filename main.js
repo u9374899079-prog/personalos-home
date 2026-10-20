@@ -36,8 +36,8 @@ class PersonalView extends ItemView{
  getViewType(){return VIEW;}
  getDisplayText(){return 'PersonalOS';}
  getIcon(){return 'layout-dashboard';}
- async onOpen(){this.contentEl.addClass('ph-host');await this.render();this.plugin.queueDiagnostics();}
- async onClose(){clearTimeout(this.timer);this.contentEl.removeClass('ph-host');}
+ async onOpen(){this.contentEl.addClass('ph-host');this._relayout=()=>this.updateObsidianInsets();window.addEventListener('resize',this._relayout);window.visualViewport?.addEventListener('resize',this._relayout);await this.render();this.plugin.queueDiagnostics();}
+ async onClose(){clearTimeout(this.timer);window.removeEventListener('resize',this._relayout);window.visualViewport?.removeEventListener('resize',this._relayout);this.contentEl.removeClass('ph-host');}
  refresh(){clearTimeout(this.timer);this.timer=setTimeout(()=>{
    if(!this.contentEl.isConnected||this.section==='compose')return;const a=document.activeElement;
    if(a&&this.contentEl.contains(a)&&['INPUT','TEXTAREA'].includes(a.tagName))return;
@@ -60,6 +60,20 @@ class PersonalView extends ItemView{
    // On iPhone, Obsidian owns the bottom toolbar; our tabs stay above content.
    // Match the same CSS breakpoint so iPad/desktop layouts remain unchanged.
    if(window.matchMedia('(max-width:600px)').matches) shell.insertBefore(nav,this.surface);
+   this.updateObsidianInsets();
+ }
+
+ updateObsidianInsets(){
+  const shell=this.contentEl.querySelector('.ph-shell'),surface=this.contentEl.querySelector('.ph-surface');
+  if(!shell||!surface)return;
+  const floating=document.querySelector('.mobile-navbar');
+  const s=shell.getBoundingClientRect(),b=floating?.getBoundingClientRect();
+  // Scrollable content must clear Obsidian's native floating toolbar.
+  // Use measured geometry instead of assuming the iPhone safe-area height.
+  const overlap=b&&b.height>0&&b.bottom>0&&b.top<s.bottom ? Math.max(0,s.bottom-b.top) : 0;
+  const reserve=Math.max(24,Math.round(overlap)+24);
+  surface.style.paddingBottom=reserve+'px';
+  shell.style.setProperty('--ph-native-bottom-reserve',reserve+'px');
  }
  go(id){this.section=id;this.render();}
  title(k,title,subtitle){this.surface.append(el('div','ph-eyebrow',k),el('h1','ph-page-title',title),el('p','ph-page-subtitle',subtitle));}
@@ -158,7 +172,15 @@ module.exports=class PersonalOSHome extends Plugin{
    if(!view?.contentEl?.isConnected)return;
    const rect=(selector,scope=document)=>{const x=scope.querySelector(selector);if(!x)return null;const r=x.getBoundingClientRect();return {top:Math.round(r.top),bottom:Math.round(r.bottom),width:Math.round(r.width),height:Math.round(r.height)};};
    const scope=view.contentEl;
-   const data={version:this.manifest.version,utc:new Date().toISOString(),viewport:{width:window.innerWidth,height:window.innerHeight,visualHeight:Math.round(window.visualViewport?.height||window.innerHeight)},
+   const ancestors=[];let ancestor=scope;
+   for(let level=0;ancestor&&level<8;level++,ancestor=ancestor.parentElement){
+     const computed=getComputedStyle(ancestor),r=ancestor.getBoundingClientRect();
+     ancestors.push({tag:ancestor.tagName?.toLowerCase()||'',className:String(ancestor.className||'').slice(0,150),
+       top:Math.round(r.top),bottom:Math.round(r.bottom),height:Math.round(r.height),
+       paddingTop:computed.paddingTop,marginTop:computed.marginTop,transform:computed.transform,
+       position:computed.position,display:computed.display});
+   }
+   const data={ancestors,version:this.manifest.version,utc:new Date().toISOString(),viewport:{width:window.innerWidth,height:window.innerHeight,visualHeight:Math.round(window.visualViewport?.height||window.innerHeight)},
      safeAreaTopCSS:getComputedStyle(document.documentElement).getPropertyValue('--safe-area-inset-top').trim(),
      activeView:rect('.workspace-leaf-content[data-type="personalos-home-view"]'),
      pluginShell:rect('.ph-shell',scope),pluginHeader:rect('.ph-topbar',scope),

@@ -1,0 +1,50 @@
+name: QA - Build and Data Contract (NO RELEASE)
+on:
+  push:
+    branches:
+      - 'qa/**'
+      - 'feature/**'
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'manifest.json'
+      - 'styles.css'
+      - 'package*.json'
+      - 'tsconfig*.json'
+      - 'esbuild.config.mjs'
+      - '.github/workflows/qa.yml'
+  pull_request:
+    branches: ['main']
+permissions:
+  contents: read
+jobs:
+  typecheck-test-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install development dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Test data contract, official types, and esbuild artifact
+        run: npm run check
+      - name: Check package and official Obsidian plugin bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s main.js && test -s styles.css && test -s manifest.json
+          node --check main.js
+          node -e 'const m=require("./manifest.json");if(m.isDesktopOnly!==false || m.id!=="personalos-home")process.exit(1)'
+          ! grep -q 'new Function(' main.js
+      - name: Attach isolated QA bundle, not a release
+        uses: actions/upload-artifact@v4
+        with:
+          name: PersonalOS-candidate-build-not-for-production
+          path: |
+            main.js
+            manifest.json
+            styles.css
+            package-lock.json
+          retention-days: 7

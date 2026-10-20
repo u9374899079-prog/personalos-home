@@ -1,9 +1,9 @@
 {
-  "id": "personalos-home",
-  "name": "PersonalOS Home",
-  "version": "3.2.2",
-  "minAppVersion": "1.4.0",
-  "description": "Mobile-first personal workspace: native editor integration, reliable capture and privacy-safe layout diagnostics",
-  "author": "PersonalOS",
-  "isDesktopOnly": false
+  "id":"personalos-home",
+  "name":"PersonalOS Home",
+  "version":"4.0.0-beta.1",
+  "minAppVersion":"1.4.0",
+  "description":"Native-first personal records with resilient capture and Markdown data.",
+  "author":"PersonalOS",
+  "isDesktopOnly":false
 }

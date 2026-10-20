@@ -1,36 +1,32 @@
-# PersonalOS Home
+# PersonalOS v4 Native-first 候选版（隔离验证）
 
-iPhone 和 Windows Obsidian 通用的 PersonalOS 主页插件（插件 ID：`personalos-home`）。
+**本文件包没有获准安装到正式库，不是 BRAT 正式 Release。** 生产版仍为 v3.2.2。
 
-本仓库公开的内容仅包括插件源码、样式和发布工作流。**不要将日记、笔记、Dropbox 授权信息或其他私人文件提交到这里。**
+## 开发原则
+- 官方 Obsidian TypeScript / esbuild 模板、一个插件、少量模块、Markdown 原生保存。
+- 使用 Obsidian 原生编辑器、标签页、返回和宿主状态栏。不重造固定顶部或底部导航。
+- 新增文件不覆盖旧内容；草稿按设备本地状态保存；无自动删除、自动迁移、外部遥测。
 
-## 初次安装
+## 运行测试（只用于独立开发环境）
+- `npm install`（初次安装开发依赖；正式发布须生成并提交 package-lock.json，改为 `npm ci`）。
+- `npm run check`：数据层单测 + 使用官方 obsidian 类型的类型检查 + esbuild 构建。
+- 生成的 `main.js` 与 `manifest.json`、`styles.css` 只可进入**隔离的 Obsidian 测试库**；不得装入正式个人库。
+- 本地 qa/bundle-for-local-qa.mjs 使用 `new Function` 是模拟测试的简化装载器，**不是生产构建**，请勿分发其生成的 main.js。
+- `qa/test_browser.py` 用模拟宿主 Chromium 检查列表、记录、草稿与日记，并不代表真实 iOS 测试。
 
-1. 在 Obsidian 设置 → 第三方插件 → 社区插件中安装 **BRAT**。
-2. BRAT → Add beta plugin → 输入 `u9374899079-prog/personalos-home`，选择最新版本，不要固定版本。
-3. 安装完成后，在第三方插件列表中启用 PersonalOS Home，点击侧栏 PersonalOS 图标。
-4. iPhone 与 Windows 分别执行一次；你的 Markdown 笔记由 Remotely Save + Dropbox 单独同步。
+## 已知缺口
+- 未使用官方 Obsidian 类型包完成 npm 构建（当前环境无 npm 网络）。
+- 本候选版未在真正 Obsidian 1.14.4 宿主运行；前一版 v3.2.2 的宿主结果不能算此版本通过。
+- Dropbox 真同步、冲突和 iPhone 真机输入仍待隔离环境验收。
+- 发布前必须提供同步之外的备份、恢复实测证据。
 
-后续修订增加 `manifest.json` 的版本号，GitHub Actions 校验并发布同版本 Release（`main.js`、`manifest.json`、`styles.css`）。BRAT 负责在 Obsidian 启动/更新检查时下载新版，**不保证实时推送，更新过程中可能需要重新加载插件**。
+## 目录
+- src/contract.ts：数据分类与文件命名纯函数
+- src/store.ts：Obsidian Vault API 文件操作与查找
+- src/view.ts：唯一记录视图、快速输入、筛选、系统编辑器入口
+- src/main.ts：插件生命周期、命令、设备本地草稿
+- docs/架构与模块扩展规范.md：长期规则、模块合同和发布门槛
+- qa-vault/：虚构测试数据，无实际个人信息与授权
 
-## 数据与隐私
-
-- 本插件通过 Obsidian Vault API 在当前笔记库读写 Markdown，不上传私人内容到 GitHub。
-- 文档路径：`01 收集/记录/`、`10 日记/`、`20 笔记/`。
-- GitHub 的程序更新与 Dropbox 的个人数据同步，是独立的两种机制。
-- 第三方插件运行在 Obsidian 的权限范围内，安装前应检查代码；重要数据请另设备份。
-
-参考：https://github.com/TfTHacker/obsidian42-brat/blob/main/BRAT-DEVELOPER-GUIDE.md
-
-## v3.2 起的质量控制
-
-- 快速记录采用插件内部编辑页，保留取消/返回/保存入口，不再出现无法退出的全局输入弹窗。
-- 每次发布前 GitHub Actions 自动检查 Chromium 手机/桌面布局、入口切换、未保存内容保护、保存后返回首页及 Markdown 创建；保留检查截图。
-- 插件在启动后自动写出 `90 系统/界面诊断-移动端.md` 或 `90 系统/界面诊断-桌面端.md`，只记录屏幕尺寸、界面位置、版本号。**不包含笔记正文、文件清单、同步密钥**。文件只保存在个人 Vault 内，用户启用同步后才会进入私人 Dropbox；不上传到公共 GitHub。
-- Obsidian iOS 的系统状态栏与原生工具栏并非插件本身；真实 iPhone 的几何诊断应与模拟截图结合验证。浏览器模拟不能冒充真机验收。
-
-## 一次性清理旧库
-
-已授权丢弃旧版演示资料时，使用 Obsidian 命令面板中的 `PersonalOS Home: 一次性清理旧版文件与文件夹（保留插件与同步设置）`。确认后将当前库可见文件移入 Obsidian 回收站，并清除空目录；保留 `.obsidian`、BRAT、Remotely Save 和自动布局诊断。
-
-**务必先暂停旧版 Remotely Save 同步**，在 iPhone 与 Windows 上清理各自的本地旧数据，再统一设置新的远程基础目录 `PersonalOS-v3`。否则旧版远程内容仍可能重新下载。此命令不执行后台自动删除，也不会直接改动 Dropbox 授权参数。 
+## 跟踪
+[GitHub 发布审核门槛](https://github.com/u9374899079-prog/personalos-home/issues/1)

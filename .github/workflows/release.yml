@@ -38,7 +38,7 @@ jobs:
       - name: Install Playwright browser for visual layout QA
         run: |
           npm install --no-save playwright@1.56.1
-          npx playwright install --with-deps chromium
+          npx playwright install --with-deps chromium webkit
       - name: Test mobile layout and app navigation
         run: node qa/layout.mjs
       - name: Save layout screenshots

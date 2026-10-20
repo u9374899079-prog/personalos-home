@@ -30,7 +30,8 @@ jobs:
           node -e 'const fs=require("fs");const path=process.env.RUNNER_TEMP+"/qa-vault";const home=process.env.RUNNER_TEMP+"/qa-home/obsidian/obsidian.json";fs.writeFileSync(home,JSON.stringify({vaults:{"abcdef0123456789":{path,ts:Date.now(),open:true}}},null,2));'
           curl -fL --retry 3 --retry-delay 3 --connect-timeout 20 -o "$RUNNER_TEMP/obsidian.deb" 'https://github.com/obsidianmd/obsidian-releases/releases/download/v1.14.4/obsidian_1.14.4_amd64.deb'
           sudo apt-get update -qq
-          sudo apt-get install -y -qq xvfb libgtk-3-0 libnss3 libasound2t64 libxss1 libgbm1 xdg-utils || true
+          sudo apt-get install -y -qq xvfb libgtk-3-0 libnss3 libasound2t64 libxss1 libgbm1 xdg-utils fonts-noto-cjk
+          fc-cache -f
           sudo dpkg -i "$RUNNER_TEMP/obsidian.deb" || sudo apt-get install -f -y -qq
           which obsidian
       - name: Start native Obsidian with Chrome DevTools in isolated profile

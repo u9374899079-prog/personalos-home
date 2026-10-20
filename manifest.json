@@ -1,7 +1,7 @@
 {
   "id": "personalos-home",
   "name": "PersonalOS Home",
-  "version": "3.2.2",
+  "version": "3.3.0",
   "minAppVersion": "1.4.0",
   "description": "Mobile-first personal workspace: native editor integration, reliable capture and privacy-safe layout diagnostics",
   "author": "PersonalOS",

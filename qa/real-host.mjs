@@ -23,6 +23,12 @@ try{
      await p.getByText('Trust author and enable plugins',{exact:true}).click({timeout:10000});
      trustHandled=true;mark('Official first-use plugin trust dialog handled inside disposable QA vault',true);
    }
+   if(!await p.locator('.po-main').count().catch(()=>0)){
+     const ribbon=p.locator('[aria-label="PersonalOS 记录"]').first();
+     if(await ribbon.count().catch(()=>0)){
+       await ribbon.click({timeout:8000}).catch(()=>{});
+     }
+   }
    if(await p.locator('.po-main').count().catch(()=>0)){page=p;break;}
   }
   if(page)break;

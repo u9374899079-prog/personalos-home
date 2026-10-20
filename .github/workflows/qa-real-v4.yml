@@ -1,0 +1,79 @@
+name: QA Only - PersonalOS v4 Actual Obsidian Host
+on:
+  push:
+    branches: ['qa/v4-native-first-20261020']
+    paths:
+      - '.github/workflows/qa-real-v4.yml'
+      - 'qa/real-host.mjs'
+      - 'src/**'
+      - 'package.json'
+      - 'manifest.json'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  host:
+    name: Obsidian 1.14.4 Linux - isolated synthetic vault
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build v4 plugin with official Obsidian typings
+        run: |
+          npm install --no-audit --no-fund
+          npm run check
+      - name: Download official Obsidian 1.14.4 and prepare isolated test vault
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/qa-vault/.obsidian/plugins/personalos-home" "$RUNNER_TEMP/qa-vault/10 日记" "$RUNNER_TEMP/qa-vault/01 收集/记录" "$RUNNER_TEMP/qa-vault/20 笔记" "$RUNNER_TEMP/qa-home"
+          cp main.js manifest.json styles.css "$RUNNER_TEMP/qa-vault/.obsidian/plugins/personalos-home/"
+          printf '["personalos-home"]\n' > "$RUNNER_TEMP/qa-vault/.obsidian/community-plugins.json"
+          printf '{"theme":"obsidian","cssTheme":""}\n' > "$RUNNER_TEMP/qa-vault/.obsidian/appearance.json"
+          printf '{"showLineNumber":false}\n' > "$RUNNER_TEMP/qa-vault/.obsidian/app.json"
+          printf '# Demo Journal\n\nLocal test only\n' > "$RUNNER_TEMP/qa-vault/10 日记/2026-10-20.md"
+          printf '# Demo Note\n\nReal Obsidian QA isolated test.\n' > "$RUNNER_TEMP/qa-vault/20 笔记/Independent test.md"
+          mkdir -p "$RUNNER_TEMP/qa-home/obsidian"
+          node -e 'const fs=require("fs");const path=process.env.RUNNER_TEMP+"/qa-vault";const home=process.env.RUNNER_TEMP+"/qa-home/obsidian/obsidian.json";fs.writeFileSync(home,JSON.stringify({vaults:{"abcdef0123456789":{path,ts:Date.now(),open:true}}},null,2));'
+          curl -fL --retry 3 --retry-delay 3 --connect-timeout 20 -o "$RUNNER_TEMP/obsidian.deb" 'https://github.com/obsidianmd/obsidian-releases/releases/download/v1.14.4/obsidian_1.14.4_amd64.deb'
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgtk-3-0 libnss3 libasound2t64 libxss1 libgbm1 xdg-utils fonts-noto-cjk
+          fc-cache -f
+          sudo dpkg -i "$RUNNER_TEMP/obsidian.deb" || sudo apt-get install -f -y -qq
+          which obsidian
+      - name: Start native Obsidian with Chrome DevTools in isolated profile
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p qa-artifacts
+          export DISPLAY=:99
+          Xvfb :99 -screen 0 1280x900x24 -nolisten tcp > qa-artifacts/xvfb.log 2>&1 &
+          sleep 2
+          XDG_CONFIG_HOME="$RUNNER_TEMP/qa-home" HOME="$RUNNER_TEMP/qa-home"             obsidian --no-sandbox --disable-gpu --remote-debugging-port=9222 --disable-software-rasterizer             > qa-artifacts/obsidian-host.log 2>&1 &
+          echo $! > qa-artifacts/obsidian.pid
+          for i in $(seq 1 45); do
+            if curl -fsS http://127.0.0.1:9222/json/version > qa-artifacts/devtools.json 2>/dev/null; then
+              echo 'Obsidian DevTools connection ready'; exit 0
+            fi
+            sleep 2
+          done
+          cat qa-artifacts/obsidian-host.log || true
+          exit 1
+      - name: Check real Obsidian host and plugin workflow
+        shell: bash
+        run: |
+          npm install --no-save playwright@1.56.1
+          node qa/real-host.mjs
+        env:
+          QA_VAULT: ${{ runner.temp }}/qa-vault
+      - name: Upload host evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-obsidian-host-qa
+          path: qa-artifacts/
+          if-no-files-found: ignore
+          retention-days: 7

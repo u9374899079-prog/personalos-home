@@ -21,3 +21,16 @@ iPhone 和 Windows Obsidian 通用的 PersonalOS 主页插件（插件 ID：`per
 - 第三方插件运行在 Obsidian 的权限范围内，安装前应检查代码；重要数据请另设备份。
 
 参考：https://github.com/TfTHacker/obsidian42-brat/blob/main/BRAT-DEVELOPER-GUIDE.md
+
+## v3.2 起的质量控制
+
+- 快速记录采用插件内部编辑页，保留取消/返回/保存入口，不再出现无法退出的全局输入弹窗。
+- 每次发布前 GitHub Actions 自动检查 Chromium 手机/桌面布局、入口切换、未保存内容保护、保存后返回首页及 Markdown 创建；保留检查截图。
+- 插件在启动后自动写出 `90 系统/界面诊断-移动端.md` 或 `90 系统/界面诊断-桌面端.md`，只记录屏幕尺寸、界面位置、版本号。**不包含笔记正文、文件清单、同步密钥**。文件只保存在个人 Vault 内，用户启用同步后才会进入私人 Dropbox；不上传到公共 GitHub。
+- Obsidian iOS 的系统状态栏与原生工具栏并非插件本身；真实 iPhone 的几何诊断应与模拟截图结合验证。浏览器模拟不能冒充真机验收。
+
+## 一次性清理旧库
+
+已授权丢弃旧版演示资料时，使用 Obsidian 命令面板中的 `PersonalOS Home: 一次性清理旧版文件与文件夹（保留插件与同步设置）`。确认后将当前库可见文件移入 Obsidian 回收站，并清除空目录；保留 `.obsidian`、BRAT、Remotely Save 和自动布局诊断。
+
+**务必先暂停旧版 Remotely Save 同步**，在 iPhone 与 Windows 上清理各自的本地旧数据，再统一设置新的远程基础目录 `PersonalOS-v3`。否则旧版远程内容仍可能重新下载。此命令不执行后台自动删除，也不会直接改动 Dropbox 授权参数。 

@@ -23,7 +23,7 @@ jobs:
           node-version: '22'
       - name: Build v4 plugin with official Obsidian typings
         run: |
-          npm install --no-audit --no-fund
+          npm ci --no-audit --no-fund
           npm run check
       - name: Download official Obsidian 1.14.4 and prepare isolated test vault
         shell: bash

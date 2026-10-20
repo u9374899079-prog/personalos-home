@@ -25,9 +25,10 @@ export default class PersonalOSPlugin extends Plugin{
       try{await this.app.workspace.getLeaf(true).openFile(await this.store.openToday());}
       catch(e){new Notice('打开日记失败：'+String(e));}
     }});
-    for(const event of ['create','delete','rename','modify'] as const) {
-      this.registerEvent(this.app.vault.on(event,()=>this.scheduleRefresh()));
-    }
+    this.registerEvent(this.app.vault.on('create',()=>this.scheduleRefresh()));
+    this.registerEvent(this.app.vault.on('delete',()=>this.scheduleRefresh()));
+    this.registerEvent(this.app.vault.on('rename',()=>this.scheduleRefresh()));
+    this.registerEvent(this.app.vault.on('modify',()=>this.scheduleRefresh()));
     this.addSettingTab(new PersonalSettings(this));
     if(this.options.openOnStartup)this.app.workspace.onLayoutReady(()=>{void this.openHome();});
   }

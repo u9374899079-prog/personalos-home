@@ -1,0 +1,9 @@
+{
+  "id": "personalos-home",
+  "name": "PersonalOS Home",
+  "version": "3.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "A mobile-first personal home for notes, journal, capture and search.",
+  "author": "PersonalOS",
+  "isDesktopOnly": false
+}

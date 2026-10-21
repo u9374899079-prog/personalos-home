@@ -34,9 +34,6 @@ jobs:
   actual-obsidian:
     name: Official Obsidian 1.14.4 Linux isolated Vault
     runs-on: ubuntu-latest
-    env:
-      DISPLAY: ':99'
-      QA_VAULT: ${{ runner.temp }}/qa-vault
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -50,6 +47,9 @@ jobs:
           sudo dpkg -i "$RUNNER_TEMP/obsidian.deb" || sudo apt-get install -f -y -qq
           sudo apt-get install -y -qq xvfb
       - name: Construct synthetic test vault and start official Obsidian
+        env:
+          DISPLAY: ':99'
+          QA_VAULT: ${{ runner.temp }}/qa-vault
         run: |
           mkdir -p "$QA_VAULT/.obsidian/plugins/personalos-home" "$QA_VAULT/10 日记" "$QA_VAULT/01 收集/记录" "$QA_VAULT/20 笔记" "$RUNNER_TEMP/qa-home/obsidian" qa-artifacts
           cp main.js manifest.json styles.css "$QA_VAULT/.obsidian/plugins/personalos-home/"
@@ -68,6 +68,8 @@ jobs:
           cat qa-artifacts/obsidian-host.log
           exit 1
       - name: Test native Obsidian plugin workflow
+        env:
+          QA_VAULT: ${{ runner.temp }}/qa-vault
         run: node qa/real-host.mjs
       - name: Upload native host logs and screenshots
         if: always()

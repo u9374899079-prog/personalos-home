@@ -3,6 +3,12 @@
    No outbound network, Dropbox credentials, Node.js or Electron APIs. */
 const {Plugin,ItemView,Modal,Notice,setIcon,TFile,TFolder,Platform}=require('obsidian');
 const VIEW='personalos-home-view';
+const INTEGRATIONS=Object.freeze([
+ {id:'notebook-navigator',name:'笔记导航',detail:'文件夹 · 标签 · 双栏浏览',command:'notebook-navigator:open',icon:'folders'},
+ {id:'quickadd',name:'智能收集',detail:'调用 QuickAdd 工作流',command:'quickadd:runQuickAdd',icon:'zap'},
+ {id:'omnisearch',name:'全文检索',detail:'调用 Omnisearch 搜索',command:'omnisearch:show-modal',icon:'search'},
+ {id:'tasknotes',name:'任务日程',detail:'任务 · 日历 · 专注计时',command:'tasknotes:open-tasks-view',icon:'list-todo'}
+]);
 const DIR={capture:'01 收集/记录',journal:'10 日记',notes:'20 笔记'};
 const SECTIONS=[['today','今天','house'],['capture','收集','inbox'],['journal','日记','calendar-days'],['library','资料','library']];
 const AREAS=[['个人生活','30 个人生活','heart'],['工作相关','40 工作相关','briefcase-business'],['资产管理','50 资产管理','wallet']];
@@ -107,11 +113,31 @@ class PersonalView extends ItemView{
      }catch(e){save.disabled=false;new Notice('保存失败：'+(e.message||'未知错误'));}
    });actions.appendChild(save);this.surface.appendChild(actions);
  }
+ // These are optional Obsidian community-plugin entry points; no plugin is installed automatically.
+ renderIntegrations(){
+   const section=el('section','ph-integrations'),top=el('div','ph-section-heading');
+   top.appendChild(el('h2','','成熟模块'));section.appendChild(top);
+   const grid=el('div','ph-integrations-grid');
+   for(const item of INTEGRATIONS){
+     const ready=this.plugin.isIntegrationEnabled(item.id);
+     const card=btn('',item.icon,'ph-integration-card',()=>this.plugin.launchIntegration(item.id));
+     card.replaceChildren();
+     const icon=el('span','ph-integration-icon');setIcon(icon,item.icon);
+     const text=el('span','ph-integration-body'),name=el('span','ph-integration-name',item.name),description=el('span','ph-integration-detail',item.detail);
+     text.append(name,description);
+     const badge=el('span','ph-integration-state'+(ready?' is-ready':''),ready?'可使用':'待启用');
+     card.append(icon,text,badge);card.setAttribute('aria-label',item.name+'：'+(ready?'打开':'了解启用方式'));
+     grid.appendChild(card);
+   }
+   section.appendChild(grid);
+   section.appendChild(el('p','ph-integrations-hint','复用成熟社区插件；未启用时不会自动安装或修改配置。'));
+   this.surface.appendChild(section);
+ }
  async today(){const hero=el('section','ph-hero');hero.append(el('div','ph-eyebrow',new Intl.DateTimeFormat('zh-CN',{month:'long',day:'numeric',weekday:'long'}).format(new Date())),el('h1','ph-headline','把重要的事，留在今天。'),el('p','ph-lead','一处记录日常，安静整理生活。'));this.surface.appendChild(hero);
   const acts=el('div','ph-actions-panel');acts.append(btn('快速记录','plus','ph-action ph-action-primary',()=>this.openCompose('capture')),btn('写今日日记','book-open','ph-action ph-action-secondary',()=>this.plugin.openToday()));this.surface.appendChild(acts);
   const stats=el('div','ph-summary-row');for(const [a,b] of [['今天',day()],['记录数',String(this.plugin.captures().length)],['日记篇数',String(this.plugin.journals().length)]]){const item=el('div','ph-meta');item.append(el('span','ph-meta-label',a),el('span','ph-meta-value',b));stats.appendChild(item);}this.surface.appendChild(stats);
   this.header('最近记录','继续阅读','capture');this.files(this.plugin.recent().slice(0,5),'还没有记录，从「快速记录」开始。');
-  const part=el('section','ph-mini-section');part.appendChild(el('h2','ph-mini-title','我的空间'));const tiles=el('div','ph-area-grid');for(const [name,path,icon] of AREAS)tiles.appendChild(btn(name,icon,'ph-area-tile',()=>this.plugin.openArea(path)));part.appendChild(tiles);this.surface.appendChild(part);
+  this.renderIntegrations();const part=el('section','ph-mini-section');part.appendChild(el('h2','ph-mini-title','我的空间'));const tiles=el('div','ph-area-grid');for(const [name,path,icon] of AREAS)tiles.appendChild(btn(name,icon,'ph-area-tile',()=>this.plugin.openArea(path)));part.appendChild(tiles);this.surface.appendChild(part);
  }
  async captures(){this.title('CAPTURE / INBOX','收集','想到什么，先记下来。');this.surface.appendChild(btn('记录一条想法','plus','ph-action ph-action-primary ph-full',()=>this.openCompose('capture')));this.header('最近的想法');this.files(this.plugin.captures().slice(0,80),'收集箱目前是空的。');}
  async journal(){this.title('DAILY / JOURNAL','日记','每天一点，回头看见生活的轨迹。');this.surface.appendChild(btn('打开今天的日记','calendar-plus','ph-action ph-action-primary ph-full',()=>this.plugin.openToday()));this.header('历史日记');this.files(this.plugin.journals().slice(0,90),'还没有日记，今天就可以开始。');}
@@ -163,6 +189,32 @@ module.exports=class PersonalOSHome extends Plugin{
    new Notice('清理完成：'+gone+' 个文件移入回收站；失败 '+failed+' 个。');
   });action.appendChild(confirm);panel.appendChild(action);
   m.open();
+ }
+ isIntegrationEnabled(id){
+   const item=INTEGRATIONS.find(x=>x.id===id);if(!item)return false;
+   const commands=this.app?.commands?.commands;
+   if(commands&&Object.prototype.hasOwnProperty.call(commands,item.command))return true;
+   return Boolean(this.app?.plugins?.enabledPlugins?.has?.(id));
+ }
+ async launchIntegration(id){
+   const item=INTEGRATIONS.find(x=>x.id===id);if(!item)return false;
+   const commandApi=this.app?.commands;
+   if(this.isIntegrationEnabled(id)&&typeof commandApi?.executeCommandById==='function'){
+     try{
+       const result=commandApi.executeCommandById(item.command);
+       if(result&&typeof result.then==='function')await result;
+       return true;
+     }catch(e){new Notice(item.name+'打开失败，已使用安全后备操作');}
+   }
+   if(id==='quickadd'){await this.openComposer('capture');return false;}
+   if(id==='notebook-navigator'||id==='omnisearch'){
+     await this.show();
+     const view=this.app.workspace.getLeavesOfType(VIEW)[0]?.view;
+     if(view?.go)view.go(id==='omnisearch'?'search':'library');
+     return false;
+   }
+   new Notice('请在 Obsidian 社区插件中安装并启用 TaskNotes（需要 Obsidian 1.12.2+）');
+   return false;
  }
  async openComposer(kind){await this.show();const leaf=this.app.workspace.getLeavesOfType(VIEW)[0];if(leaf?.view?.openCompose)leaf.view.openCompose(kind);}
  queueDiagnostics(){clearTimeout(this._diagTimer);this._diagTimer=setTimeout(()=>this.writeDiagnostics().catch(()=>{}),1500);}
